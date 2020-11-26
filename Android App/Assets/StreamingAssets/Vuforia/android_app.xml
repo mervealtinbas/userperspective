@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QCARConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="qcar_config.xsd">
+  <Tracking>
+    <ImageTarget name="28-cm-dedektif-pikachu-pelu-bebekler-karikat" size="0.150000 0.150000" />
+    <ImageTarget name="murat_boz" size="0.150000 0.084375" />
+    <ImageTarget name="speech_AR" size="0.060000 0.060000" />
+    <ImageTarget name="vuforia_stones_vergium" size="0.150000 0.105000" />
+  </Tracking>
+</QCARConfig>
