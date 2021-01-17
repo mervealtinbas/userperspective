@@ -22,7 +22,7 @@ MonoBehaviour:
     useDelayedLoadingObjectTargets: 0
     modelTargetRecoWhileExtendedTracked: 1
     version: 8.5.8
-    eulaAcceptedVersions: '{"Values":["0.0","8.5"]}'
+    eulaAcceptedVersions: '{"Values":["0.0","8.5","9.6"]}'
   database:
     disableModelExtraction: 0
   videoBackground:
@@ -39,6 +39,6 @@ MonoBehaviour:
     autoInitTracker: 0
     autoStartTracker: 0
   webcam:
-    deviceNameSetInEditor: Integrated Camera
+    deviceNameSetInEditor: Lenovo EasyCamera
     turnOffWebCam: 0
     renderTextureLayer: 30

@@ -71,6 +71,7 @@
      <Compile Include="Assets\Vuforia\Scripts\FacialHair.cs" />
      <Compile Include="Assets\Vuforia\Scripts\FeatureCoordinate.cs" />
      <Compile Include="Assets\Vuforia\Scripts\HeadPose.cs" />
+     <Compile Include="Assets\Vuforia\Scripts\ImageTargetPos.cs" />
      <Compile Include="Assets\Vuforia\Scripts\Internal\RuntimeOpenSourceInitializer.cs" />
      <Compile Include="Assets\Vuforia\Scripts\Scores.cs" />
      <Compile Include="Assets\Vuforia\Scripts\SelectionManager.cs" />

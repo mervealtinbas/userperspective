@@ -41,8 +41,9 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
     protected TrackableBehaviour.Status m_NewStatus;
     public CloudFaceManager faceManager;
     public float[] matrix = new float[16];
-    Matrix4x4 homographyMatrix;
+    Vector3[] homographyMatrix;
     private Material meshMaterial;
+    private Material meshMaterial2;
     private Vector3[] source = new Vector3[4];
     private Vector3[] cameraPositionSource = new Vector3[4];
     private Vector3[] cameraPositionDestination = new Vector3[4];
@@ -66,6 +67,8 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
     [Tooltip("Service location for Face API.")]
     public string faceServiceLocation = "westcentralus";
     public RawImage rawimage;
+
+    public ImageTargetPos arCam;
 
 
     [Tooltip("Subscription key for Face API.")]
@@ -103,6 +106,8 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
     public RenderTexture rt;
     GameObject cube;
     GameObject cube2;
+    GameObject cube3;
+    GameObject imageTarget;
 
     GameObject rawImage;
     string frontCamName = null;
@@ -110,9 +115,14 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
     public int resWidth = 2550;
     public int resHeight = 3300;
     public Camera camera1;
-    public float faceX;
+    public Vector3 normalizedFace;
+
+    public Vector3 normalizedPosition;
+
+    public float fov;
     private float nextActionTime = 0.0f;
     public float period = 1.0f;
+    Matrix4x4 homographyMatrixx;
 
     #endregion // PRIVATE_MEMBERS
 
@@ -151,14 +161,15 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
 #endif
         VuforiaARController.Instance.RegisterVuforiaStartedCallback(OnVuforiaStarted);
         //VuforiaARController.Instance.RegisterTrackablesUpdatedCallback(OnTrackablesUpdated);
+        arCam = GameObject.Find("ARCamera").GetComponent<ImageTargetPos>();
         var webCamDevices = WebCamTexture.devices;
         foreach (var camDevice in webCamDevices)
         {
-            /*  if(camDevice.isFrontFacing){
-                frontCamName = camDevice.name;
-            }else{
-                backCamName = camDevice.name;
-            }  */
+            /* if(camDevice.isFrontFacing){
+               frontCamName = camDevice.name;
+           }else{
+               backCamName = camDevice.name;
+           } */
             if (camDevice.name == "Integrated Camera")
             {
                 backCamName = camDevice.name;
@@ -168,24 +179,53 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
                 frontCamName = camDevice.name;
             }
         }
-
+        cube = GameObject.Find("Cube");
+        cube2 = GameObject.Find("Cube2");
+        //cube3 = GameObject.Find("Cube3");
         frontWebcamTexture = new WebCamTexture(frontCamName);
-        frontWebcamTexture.Play();
         backWebcamTexture = new WebCamTexture(backCamName);
-
-
+        backWebcamTexture.Play();
+        /* cube.GetComponent<Renderer>().material.mainTexture = frontWebcamTexture;
+        frontWebcamTexture.Play(); */
     }
 
     void Update()
     {
-        if (Time.time > nextActionTime)
-        {
-            nextActionTime += period;
-            Texture2D brightBGTexture = new Texture2D(frontWebcamTexture.width, frontWebcamTexture.height);
-            brightBGTexture.SetPixels32(frontWebcamTexture.GetPixels32(), 0);
-            brightBGTexture.Apply();
-            StartCoroutine(zamanliCalis(brightBGTexture));
-        }
+            normalizedPosition = arCam.normalizedPosition;
+            float cameraDistance = 2.0f;
+            float aspect = Screen.width / Screen.height;
+            float deviceWith = 0.07f;
+            float deviceHeight = 0.12f;
+            float faceWidth = 0.15f;
+            float frontCameraFov = 74.0f;
+            // yarım metre ön kameraya uzaksak
+            float zFactor = faceWidth / (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad));
+            // kullanıcının kameraya olan uzaklığı
+            float eyeZ = 0.5f * (zFactor / normalizedPosition.z);
+            float eyeX = aspect * eyeZ * (Mathf.Atan(-normalizedPosition.x * (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad))));
+            float eyeY = eyeZ * (Mathf.Atan(normalizedPosition.y * (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad))));
+            float userDistance = cameraDistance + eyeZ;
+            // user left
+            float ul = eyeX + (-deviceWith / 2.0f - eyeX) * (userDistance) / (eyeZ);
+            //user right
+            float ur = eyeX + (deviceWith / 2.0f - eyeX) * (userDistance) / (eyeZ);
+            // user top
+            float ut = eyeY + (-eyeY) * (userDistance) / (eyeZ);
+            //user bottom
+            float ub = eyeY + (-deviceHeight - eyeY) * (userDistance) / (eyeZ);
+
+            Mesh phoneMesh = cube2.GetComponent<MeshFilter>().mesh;
+            Vector2[] puv = new Vector2[phoneMesh.uv.Length];
+            Array.Copy(phoneMesh.uv, puv, phoneMesh.uv.Length);
+
+            float projectionWidth = 2 * Mathf.Tan(Mathf.Deg2Rad * 70 / 2) * cameraDistance;
+            puv[15] = new Vector2(ur / projectionWidth + 0.5f, ub / projectionWidth + 0.5f);
+            puv[12] = new Vector2(ul / projectionWidth + 0.5f, ub / projectionWidth + 0.5f);
+            puv[14] = new Vector2(ur / projectionWidth + 0.5f, ut / projectionWidth + 0.5f);
+            puv[13] = new Vector2(ul / projectionWidth + 0.5f, ut / projectionWidth + 0.5f);
+
+            cube2.GetComponent<MeshFilter>().mesh.uv = puv;
+
     }
     #endregion // MONOBEHAVIOUR_METHODS
 
@@ -292,20 +332,15 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
             foreach (var component in canvasComponents)
                 component.enabled = true;
 
-            cube = GameObject.Find("Cube");
-            cube2 = GameObject.Find("Cube2");
-            Camera camera = Camera.main;
-            camera.enabled = false;
+            // StartCoroutine(arkaKameraGoruntusuAl());
+            cube.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
+            cube2.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
+            // cube3.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
+            arCam.TargetDetected();
 
-            camera1.enabled = true;
 
-            cube.GetComponent<Renderer>().material.mainTexture = frontWebcamTexture;
-            StartCoroutine(arkaKameraGoruntusuAl());
-            cube2.GetComponent<Renderer>().material.mainTexture = texCamShot;
-            Texture2D brightBGTexture = new Texture2D(frontWebcamTexture.width, frontWebcamTexture.height);
-            brightBGTexture.SetPixels32(frontWebcamTexture.GetPixels32(), 0);
-            brightBGTexture.Apply();
-            StartCoroutine(zamanliCalis(brightBGTexture));
+            //StartCoroutine(cameraUpdate());
+
 
         }
     }
@@ -327,43 +362,165 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
         texCamShot.Apply();
         yield return texCamShot;
     }
+    WaitForSeconds delay = new WaitForSeconds(5.0f);
+    IEnumerator cameraUpdate()
+    {
+        while (true)
+        {
+            StartCoroutine(arkaKameraGoruntusuAl());
+            cube3.GetComponent<Renderer>().material.mainTexture = texCamShot;
+            cube2.GetComponent<Renderer>().material.mainTexture = texCamShot;
+            Texture2D brightBGTexture = new Texture2D(frontWebcamTexture.width, frontWebcamTexture.height);
+            brightBGTexture.SetPixels32(frontWebcamTexture.GetPixels32(), 0);
+            brightBGTexture.Apply();
+            StartCoroutine(zamanliCalis(brightBGTexture));
+            yield return delay;
+        }
+    }
+
     IEnumerator zamanliCalis(Texture2D brightBGTexture)
     {
+
         yield return StartCoroutine(KameraPozisyonariniBul(brightBGTexture));
-        /* yield return StartCoroutine(ExampleCoroutine());
-        yield return StartCoroutine(KameraPozisyonariniBul(1)); */
 
-        // arCamera.transform.position = Vector3.Lerp(arCameraPosition, facePosition, Time.time);
+        float cameraDistance = 2.0f;
+        float aspect = Screen.width / Screen.height;
+        float deviceWith = 0.07f;
+        float deviceHeight = 0.12f;
+        float faceWidth = 0.15f;
+        float frontCameraFov = 74.0f;
+        // yarım metre ön kameraya uzaksak
+        float zFactor = faceWidth / (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad));
+        // kullanıcının kameraya olan uzaklığı
+        float eyeZ = 0.5f * (zFactor / normalizedFace.z);
+        float eyeX = aspect * eyeZ * (Mathf.Atan(-normalizedFace.x * (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad))));
+        float eyeY = eyeZ * (Mathf.Atan(normalizedFace.y * (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad))));
+        float userDistance = cameraDistance + eyeZ;
+        // user left
+        float ul = eyeX + (-deviceWith / 2.0f - eyeX) * (userDistance) / (eyeZ);
+        //user right
+        float ur = eyeX + (deviceWith / 2.0f - eyeX) * (userDistance) / (eyeZ);
+        // user top
+        float ut = eyeY + (-eyeY) * (userDistance) / (eyeZ);
+        //user bottom
+        float ub = eyeY + (-deviceHeight - eyeY) * (userDistance) / (eyeZ);
 
-        cameraPositionSource[0].x = 0;
-        cameraPositionSource[0].y = 0;
-        cameraPositionSource[1].x = backWebcamTexture.width;
-        cameraPositionSource[1].y = 0;
-        cameraPositionSource[2].x = 0;
-        cameraPositionSource[2].y = backWebcamTexture.height;
-        cameraPositionSource[3].x = backWebcamTexture.width;
-        cameraPositionSource[3].y = backWebcamTexture.height;
+        Mesh phoneMesh = cube2.GetComponent<MeshFilter>().mesh;
+        Vector2[] puv = new Vector2[phoneMesh.uv.Length];
+        Array.Copy(phoneMesh.uv, puv, phoneMesh.uv.Length);
+
+        float projectionWidth = 2 * Mathf.Tan(Mathf.Deg2Rad * 70 / 2) * cameraDistance;
 
 
-        //FindHomography(cameraPositionSource, cameraPositionDestination);
-        Vector3 targetLocation = new Vector3(faceX, 0, -5);
-        Vector3 vectorToTarget = -targetLocation;
-        camera1.transform.localPosition = targetLocation;
-        /*  Quaternion rot = Quaternion.LookRotation(forward: vectorToTarget.normalized, upwards: -Vector3.up);
-         camera1.transform.localRotation=rot; */
+        puv[15] = new Vector2(ur / projectionWidth + 0.5f, ub / projectionWidth + 0.5f);
+        puv[12] = new Vector2(ul / projectionWidth + 0.5f, ub / projectionWidth + 0.5f);
+        puv[14] = new Vector2(ur / projectionWidth + 0.5f, ut / projectionWidth + 0.5f);
+        puv[13] = new Vector2(ul / projectionWidth + 0.5f, ut / projectionWidth + 0.5f);
+
+        cube2.GetComponent<MeshFilter>().mesh.uv = puv;
+
+        /*  puv[10] = new Vector2(ur / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+             puv[11] = new Vector2(ul / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+             puv[6] = new Vector2(ur / projectionWidth + eyeZ, ut / projectionWidth + eyeZ);
+             puv[7] = new Vector2(ul / projectionWidth + eyeZ, ut / projectionWidth + eyeZ); */
+
+        /*  puv[0] = new Vector2(ur / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+         puv[1] = new Vector2(ul / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+         puv[2] = new Vector2(ur / projectionWidth + eyeZ, ut / projectionWidth + eyeZ);
+         puv[3] = new Vector2(ul / projectionWidth + eyeZ, ut / projectionWidth + eyeZ); */
+
+        /*  puv[16] = new Vector2(ul / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+        puv[18] = new Vector2(ur / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+        puv[19] = new Vector2(ul / projectionWidth + eyeZ, ut / projectionWidth + eyeZ);
+        puv[17] = new Vector2(ur / projectionWidth + eyeZ, ut / projectionWidth + eyeZ); */
+
+        /*  puv[20] = new Vector2(ur / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+        puv[22] = new Vector2(ul / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+        puv[23] = new Vector2(ur / projectionWidth + eyeZ, ut / projectionWidth + eyeZ);
+        puv[21] = new Vector2(ul / projectionWidth + eyeZ, ut / projectionWidth + eyeZ);  */
+
+        /* puv[8] = new Vector2(ur / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+        puv[9] = new Vector2(ul / projectionWidth + eyeZ, ub / projectionWidth + eyeZ);
+        puv[4] = new Vector2(ur / projectionWidth + eyeZ, ut / projectionWidth + eyeZ);
+        puv[5] = new Vector2(ul / projectionWidth + eyeZ, ut / projectionWidth + eyeZ); */
+
+        /*  puv[15] = new Vector2(2.0f, 0.0f);
+         puv[12] = new Vector2(0.0f,0.0f);
+         puv[14] = new Vector2(2.0f ,2.0f);
+         puv[13] = new Vector2(0.0f,2.0f); */
+
+
+
+        // pixel format
+        /* float pul = (ul + frustumWidth / 2.0f) * Screen.width / frustumWidth;
+        float pur = (ur + frustumWidth / 2.0f) * Screen.width / frustumWidth;
+        float put = (ut + frustumHeight / 2.0f) * Screen.height / frustumHeight;
+        float pub = (ub + frustumHeight / 2.0f) * Screen.height / frustumHeight;
+ */
+        //float userFov = Mathf.Atan(deviceWith / deviceHeight) * Mathf.Rad2Deg * 2f;
+        /* float userFrustumHeight = 2.0f * userDistance * Mathf.Tan(70.f * 0.5f * Mathf.Deg2Rad);
+        float deviceAspect = deviceWith/deviceHeight;
+        float userFrustumWidth = userFrustumHeight * deviceAspect; */
+        // B) (pul,pub) (pur,pub) (pul,put) (pur,put)
+        /* cameraPositionDestination[0].x = pul;
+        cameraPositionDestination[0].y = pub;
+        cameraPositionDestination[1].x = pur;
+        cameraPositionDestination[1].y = pub;
+        cameraPositionDestination[2].x = pul;
+        cameraPositionDestination[2].y = put;
+        cameraPositionDestination[3].x = pur;
+        cameraPositionDestination[3].y = put; */
+
+
+
+        // matrislerin yeri değişebilir.
+        /*  FindHomography(cameraPositionSource,cameraPositionDestination);
+        // FindHomography(ref cameraPositionDestination, ref cameraPositionSource, ref matrix);
+
+         float[,] cubeCurrentPosition = { { cube.transform.position.x, cube.transform.position.y, cube.transform.position.z } };
+         float[,] cube2CurrentPosition = { { cube2.transform.position.x, cube2.transform.position.y, cube2.transform.position.z } };
+         float[,] homographyMatrixPosition = { { homographyMatrix[0].x, homographyMatrix[0].y, homographyMatrix[0].z }, { homographyMatrix[1].x, homographyMatrix[1].y, homographyMatrix[1].z }, { homographyMatrix[2].x, homographyMatrix[2].y, homographyMatrix[2].z } };
+         float[,] cubeNewPosition = new float[1, 3];
+         float[,] cube2NewPosition = new float[1, 3];
+         for (int i = 0; i < 1; i++)
+         {
+             for (int j = 0; j < 3; j++)
+             {
+                 cubeNewPosition[i, j] = 0;
+                 cube2NewPosition[i, j] = 0;
+                 for (int k = 0; k < 3; k++) {
+                     cubeNewPosition[i, j] = cubeNewPosition[i, j] + cubeCurrentPosition[i, k] * homographyMatrixPosition[k, j];
+                     cube2NewPosition[i, j] = cube2NewPosition[i, j] + cube2CurrentPosition[i, k] * homographyMatrixPosition[k, j];
+                 }
+             }
+         }
+         //camera1.fov=userFov;
+         Vector3 newCubePosition = new Vector3(cubeNewPosition[0, 0], cubeNewPosition[0, 1], cubeNewPosition[0, 2]);
+         Vector3 newCube2Position = new Vector3(cube2NewPosition[0, 0], cube2NewPosition[0, 1], cube2NewPosition[0, 2]);
+         cube.transform.position = newCubePosition;
+         cube2.transform.position= newCube2Position; */
+
+
+        /* Vector3 targetLocation = new Vector3(faceX, 0, -5);
+       Vector3 vectorToTarget = -targetLocation;
+       camera1.transform.localPosition = targetLocation; */
+        /* Quaternion rot = Quaternion.LookRotation(forward: vectorToTarget.normalized, upwards: -Vector3.up);
+        camera1.transform.localRotation=rot; */
         // camera1.transform.rotation = Quaternion.RotateTowards(transform.rotation, rot, turnSpeed * Time.deltaTime);
+        /*  cameraPositionSource[0].x = 0;
+       cameraPositionSource[0].y = 0;
+       cameraPositionSource[1].x = backWebcamTexture.width;
+       cameraPositionSource[1].y = 0;
+       cameraPositionSource[2].x = 0;
+       cameraPositionSource[2].y = backWebcamTexture.height;
+       cameraPositionSource[3].x = backWebcamTexture.width;
+       cameraPositionSource[3].y = backWebcamTexture.height; */
 
+        //imageTarget.transform.position = ExtractPosition(homographyMatrix);
         //cube.transform.localScale = ExtractScale(homographyMatrix);
         // cube.transform.rotation = ExtractRotation(homographyMatrix);
         //cube.transform.position = ExtractPosition(homographyMatrix);
-        // cube2.transform.position = ExtractPosition(homographyMatrix);
-
-        //TODO camera posizyonu ile yüz pozisyonu arasındaki homography matrisini bulacaz..
-        //meshMaterial = GameObject.Find("Cube").GetComponent<Renderer>().material;
-        /*  meshMaterial.SetVector("matrixRow_1", new Vector4(matrix[0], matrix[4], matrix[8], matrix[12]));
-         meshMaterial.SetVector("matrixRow_2", new Vector4(matrix[1], matrix[5], matrix[9], matrix[13]));
-         meshMaterial.SetVector("matrixRow_3", new Vector4(matrix[2], matrix[6], matrix[10], matrix[14]));
-         meshMaterial.SetVector("matrixRow_4", new Vector4(matrix[3], matrix[7], matrix[11], matrix[15]));  */
+        // cube2.transform.position = ExtractPosition(homographyMatrix); 
 
 
 
@@ -419,10 +576,13 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
         var rsv = v.Column(v.ColumnCount - 1);
 
         // reshape to 3x3 matrix
-        Matrix4x4 h = Matrix4x4.zero;
-        h.SetRow(0, new Vector4((float)rsv[0], (float)rsv[1], (float)rsv[2], 0));
-        h.SetRow(1, new Vector4((float)rsv[3], (float)rsv[4], (float)rsv[5], 0));
-        h.SetRow(2, new Vector4((float)rsv[6], (float)rsv[7], (float)rsv[8], 0));
+        Vector3[] h = new[] { new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f) };
+        h[0] = new Vector3((float)rsv[0], (float)rsv[1], (float)rsv[2]);
+        h[1] = new Vector3((float)rsv[3], (float)rsv[4], (float)rsv[5]);
+        h[2] = new Vector3((float)rsv[6], (float)rsv[7], (float)rsv[8]);
+        /*  h.SetRow(0, new Vector3((float)rsv[0], (float)rsv[1], (float)rsv[2]));
+        h.SetRow(1, new Vector3((float)rsv[3], (float)rsv[4], (float)rsv[5]));
+        h.SetRow(2, new Vector3((float)rsv[6], (float)rsv[7], (float)rsv[8]));  */
         homographyMatrix = h;
     }
     IEnumerator KameraPozisyonariniBul(Texture2D brightBGTexture)
@@ -430,12 +590,8 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
         GameObject obj = new GameObject();
         obj.AddComponent<CloudFaceManager>();
         CloudFaceManager cloudFaceManager = obj.GetComponent<CloudFaceManager>();
-        /*  Texture2D brightBGTexture = new Texture2D(frontWebcamTexture.width, frontWebcamTexture.height);
-        brightBGTexture.SetPixels32(frontWebcamTexture.GetPixels32(), 0);
-        brightBGTexture.Apply(); */
         yield return StartCoroutine(cloudFaceManager.DetectFaces(brightBGTexture, cube));
-        cameraPositionDestination = cloudFaceManager.cameraPositionSourceVector;
-        faceX = cloudFaceManager.faceX;
+        normalizedFace = cloudFaceManager.normalizedFace;
     }
 
     static byte[] Color32ArrayToByteArray(Color32[] colors)
@@ -479,9 +635,9 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
     }
 
 
-    /*  void FindHomography(ref Vector3[] src, ref Vector3[] dest, ref float[] homography) 
-     { 
-         float[,] P = new float [,]{  
+    void FindHomography(ref Vector3[] src, ref Vector3[] dest, ref float[] homography)
+    {
+        float[,] P = new float[,]{
          {-src[0].x, -src[0].y, -1,   0,   0,  0, src[0].x*dest[0].x, src[0].y*dest[0].x, -dest[0].x }, // h11  
          {  0,   0,  0, -src[0].x, -src[0].y, -1, src[0].x*dest[0].y, src[0].y*dest[0].y, -dest[0].y }, // h12  
 
@@ -493,21 +649,21 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
 
          {-src[3].x, -src[3].y, -1,   0,   0,  0, src[3].x*dest[3].x, src[3].y*dest[3].x, -dest[3].x }, // h31  
          {  0,   0,  0, -src[3].x, -src[3].y, -1, src[3].x*dest[3].y, src[3].y*dest[3].y, -dest[3].y }, // h32  
-         };  
+         };
 
-         GaussianElimination(ref P,9);  
+        GaussianElimination(ref P, 9);
 
-         // gaussian elimination gives the results of the equation system  
-         // in the last column of the original matrix.  
-         // opengl needs the transposed 4x4 matrix:  
-         float[] aux_H={ P[0,8],P[3,8],0,P[6,8], // h11  h21 0 h31  
+        // gaussian elimination gives the results of the equation system  
+        // in the last column of the original matrix.  
+        // opengl needs the transposed 4x4 matrix:  
+        float[] aux_H ={ P[0,8],P[3,8],0,P[6,8], // h11  h21 0 h31  
              P[1,8],P[4,8],0,P[7,8], // h12  h22 0 h32  
              0      ,      0,0,0,       // 0    0   0 0  
              P[2,8],P[5,8],0,1};      // h13  h23 0 h33  
 
-         for(int i=0;i<16;i++) homography[i] = aux_H[i];  
+        for (int i = 0; i < 16; i++) homography[i] = aux_H[i];
 
-     } */
+    }
 
 
 

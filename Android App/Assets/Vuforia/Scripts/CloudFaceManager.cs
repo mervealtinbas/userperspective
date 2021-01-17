@@ -13,10 +13,10 @@ using UnityEngine;
 public class CloudFaceManager : MonoBehaviour
 {
     [Tooltip("Service location for Face API.")]
-    public string faceServiceLocation = "northeurope";
+    public string faceServiceLocation = "westcentralus";
 
     [Tooltip("Subscription key for Face API.")]
-    public string faceSubscriptionKey = "41d3c1f3033e478491d0c438cb053d37";
+    public string faceSubscriptionKey = "6a90195774a34021b63cc3a46b73a4d0";
 
     //	[Tooltip("Whether to recognize the emotions of the detected faces, or not.")]
     //	public bool recognizeEmotions = false;
@@ -31,20 +31,26 @@ public class CloudFaceManager : MonoBehaviour
     public List<Face> faces;  // the detected faces
     public Vector3[] cameraPositionSourceVector = new Vector3[4];
 
-    public float faceX ;
+    public Vector3 normalizedFace;
+    public float fov;
     public Vector3 facePosition;
     private WWW wwwData;
 
 
     //private const string ServiceHost = "https://api.projectoxford.ai/face/v1.0";
-    //private const string FaceServiceHost = "https://[location].api.cognitive.microsoft.com/face/v1.0";
-    private const string FaceServiceHost = "https://merve.cognitiveservices.azure.com/face/v1.0";
+     // 7 günlük deneme süresi adresi
+    private const string FaceServiceHost = "https://[location].api.cognitive.microsoft.com/face/v1.0";
+   // private const string FaceServiceHost = "https://merve.cognitiveservices.azure.com/face/v1.0";
+  
     private const string EmotionServiceHost = "https://[location].api.cognitive.microsoft.com/emotion/v1.0";
 
     private static CloudFaceManager instance = null;
     private bool isInitialized = false;
     bool isDone = false;
     string newJson;
+    Texture2D tex;
+
+    float frustumHeight;
 
     void Start()
     {
@@ -90,10 +96,13 @@ public class CloudFaceManager : MonoBehaviour
     public IEnumerator DetectFaces(Texture2D texImage, GameObject cube)
 
     {
+        tex = new Texture2D(16, 16, TextureFormat.PVRTC_RGBA4, false);
         byte[] imageBytes = texImage.EncodeToPNG();
-        string jpgFile = Application.persistentDataPath + "/yuzalgilama"  + ".jpg";
+        string jpgFile = Application.persistentDataPath + "/yuzalgilama" + ".jpg";
         Debug.Log(jpgFile);
         System.IO.File.WriteAllBytes(jpgFile, imageBytes);
+        tex.LoadRawTextureData(imageBytes);
+        tex.Apply();
 
         faces = null;
 
@@ -110,7 +119,7 @@ public class CloudFaceManager : MonoBehaviour
         headers.Add("Ocp-Apim-Subscription-Key", faceSubscriptionKey);
         headers.Add("Content-Type", "application/octet-stream");
         yield return StartCoroutine(WaitForDownload(requestUrl, imageBytes, headers));
-       // DrawFaceRects(texImage, faces, FaceDetectionUtils.FaceColors, true, cube);
+        // DrawFaceRects(texImage, faces, FaceDetectionUtils.FaceColors, true, cube);
 
     }
 
@@ -126,19 +135,17 @@ public class CloudFaceManager : MonoBehaviour
         if (faces.Count != 0)
         {
             FaceRectangle rect = faces[0].faceRectangle;
+            Debug.Log("Top:"+ rect.top);
+            Debug.Log("Left:"+ rect.left);
+            Debug.Log("Width:"+ rect.width);
+            Debug.Log("Height:"+ rect.height);
             float x = rect.left;
             float y = rect.top;
             float roll = faces[0].faceAttributes.headPose.roll;
-            facePosition = new Vector3(x, y, 0.0f);
-            cameraPositionSourceVector[0].x = rect.left;
-            cameraPositionSourceVector[0].y = rect.top;
-            cameraPositionSourceVector[1].x = rect.left + rect.width;
-            cameraPositionSourceVector[1].y = rect.top;
-            cameraPositionSourceVector[2].x = rect.left;
-            cameraPositionSourceVector[2].y = rect.top + rect.height;
-            cameraPositionSourceVector[3].x = rect.left + rect.width;
-            cameraPositionSourceVector[3].y = rect.top + rect.height;
-            faceX = (rect.left + (rect.width/2f)- 640f )/ 1280f;
+            //TODO 640 değeri parametrik olmalı
+            normalizedFace.x = (rect.left + (rect.width / 2f) - 640) / 640;
+            normalizedFace.y = (rect.top + (rect.height / 2f) - 360) / 360;
+            normalizedFace.z = 1.0f*rect.width/1280f;
         }
 
 
