@@ -13,11 +13,11 @@ using UnityEngine.EventSystems;
 using UnityEngine.Android;
 #endif
 
-namespace Vuforia.UnityRuntimeCompiled
+namespace Vuforia.UnityCompiled
 {
     public class RuntimeOpenSourceInitializer
     {
-        static IUnityRuntimeCompiledFacade sFacade;
+        static IUnityCompiledFacade sFacade;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void OnRuntimeMethodLoad()
@@ -29,19 +29,26 @@ namespace Vuforia.UnityRuntimeCompiled
         {
             if (sFacade != null) return;
 
-            sFacade = new OpenSourceUnityRuntimeCompiledFacade();
-            UnityRuntimeCompiledFacade.Instance = sFacade;
+            sFacade = new OpenSourceUnityCompiledFacade();
+            UnityCompiledFacade.Instance = sFacade;
         }
 
-        class OpenSourceUnityRuntimeCompiledFacade : IUnityRuntimeCompiledFacade
+        class OpenSourceUnityCompiledFacade : IUnityCompiledFacade
         {
             readonly IUnityRenderPipeline mUnityRenderPipeline = new UnityRenderPipeline();
+            readonly IUnityAndroidPermissions mUnityAndroidPermissions = new UnityAndroidPermissions();
 
             public IUnityRenderPipeline UnityRenderPipeline
             {
                 get { return mUnityRenderPipeline; }
             }
             
+            public IUnityAndroidPermissions UnityAndroidPermissions
+            {
+                get { return mUnityAndroidPermissions; }
+            }
+
+
             public bool IsUnityUICurrentlySelected()
             {
                 return !(EventSystem.current == null || EventSystem.current.currentSelectedGameObject == null);
@@ -82,6 +89,25 @@ namespace Vuforia.UnityRuntimeCompiled
             {
                 if (BeginFrameRendering != null)
                     BeginFrameRendering(cameras);
+            }
+        }
+
+        class UnityAndroidPermissions : IUnityAndroidPermissions
+        {
+            public bool HasRequiredPermissions()
+            {
+#if PLATFORM_ANDROID
+                return Permission.HasUserAuthorizedPermission(Permission.Camera);
+#else
+                return true;
+#endif
+            }
+
+            public void AskForPermissions()
+            {
+#if PLATFORM_ANDROID
+                Permission.RequestUserPermission(Permission.Camera);
+#endif
             }
         }
     }
