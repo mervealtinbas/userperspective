@@ -107,6 +107,7 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
     GameObject cube;
     GameObject cube2;
     GameObject cube3;
+    GameObject plane;
     GameObject imageTarget;
 
     GameObject rawImage;
@@ -180,7 +181,10 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
             }
         }
         cube = GameObject.Find("Cube");
+         cube.SetActive(false);
         cube2 = GameObject.Find("Cube2");
+         cube2.SetActive(false);
+         plane=GameObject.Find("Plane");
         //cube3 = GameObject.Find("Cube3");
         frontWebcamTexture = new WebCamTexture(frontCamName);
         backWebcamTexture = new WebCamTexture(backCamName);
@@ -191,13 +195,26 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
 
     void Update()
     {
+            //TODO ölçleri bilgisayar kamerasına ve boyutlarına göre ayarla
             normalizedPosition = arCam.normalizedPosition;
-            float cameraDistance = 2.0f;
+            // telefon ölçüleri
+           /*  float cameraDistance = 2.0f;
             float aspect = Screen.width / Screen.height;
             float deviceWith = 0.07f;
             float deviceHeight = 0.12f;
             float faceWidth = 0.15f;
             float frontCameraFov = 74.0f;
+             float backCameraFov = 70.0f; */
+
+            // bilgisayar ölçüleri
+            float cameraDistance = 2.0f;
+            float aspect = Screen.width / Screen.height;
+            float deviceWith = 0.30f;
+            float deviceHeight = 0.15f;
+            float faceWidth = 0.15f;
+            float frontCameraFov = 60.0f;
+            float backCameraFov = 90.0f;
+
             // yarım metre ön kameraya uzaksak
             float zFactor = faceWidth / (Mathf.Tan(frontCameraFov * 0.5f * Mathf.Deg2Rad));
             // kullanıcının kameraya olan uzaklığı
@@ -214,17 +231,20 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
             //user bottom
             float ub = eyeY + (-deviceHeight - eyeY) * (userDistance) / (eyeZ);
 
-            Mesh phoneMesh = cube2.GetComponent<MeshFilter>().mesh;
+            Mesh phoneMesh = plane.GetComponent<MeshFilter>().mesh;
             Vector2[] puv = new Vector2[phoneMesh.uv.Length];
             Array.Copy(phoneMesh.uv, puv, phoneMesh.uv.Length);
 
-            float projectionWidth = 2 * Mathf.Tan(Mathf.Deg2Rad * 70 / 2) * cameraDistance;
+            float projectionWidth = 2 * Mathf.Tan(Mathf.Deg2Rad * backCameraFov / 2) * cameraDistance;
             puv[15] = new Vector2(ur / projectionWidth + 0.5f, ub / projectionWidth + 0.5f);
             puv[12] = new Vector2(ul / projectionWidth + 0.5f, ub / projectionWidth + 0.5f);
             puv[14] = new Vector2(ur / projectionWidth + 0.5f, ut / projectionWidth + 0.5f);
             puv[13] = new Vector2(ul / projectionWidth + 0.5f, ut / projectionWidth + 0.5f);
 
-            cube2.GetComponent<MeshFilter>().mesh.uv = puv;
+            //cube2.GetComponent<MeshFilter>().mesh.uv = puv;
+            //plane.transform.localRotation = Quaternion.Euler(80f,15f,-10f);
+            plane.GetComponent<MeshFilter>().mesh.uv = puv;
+            
 
     }
     #endregion // MONOBEHAVIOUR_METHODS
@@ -333,8 +353,9 @@ public class DefaultTrackableEventHandler : MonoBehaviour, ITrackableEventHandle
                 component.enabled = true;
 
             // StartCoroutine(arkaKameraGoruntusuAl());
-            cube.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
-            cube2.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
+             plane.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
+            /* cube.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
+            cube2.GetComponent<Renderer>().material.mainTexture = backWebcamTexture; */
             // cube3.GetComponent<Renderer>().material.mainTexture = backWebcamTexture;
             arCam.TargetDetected();
 
